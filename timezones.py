@@ -69,7 +69,7 @@ class Timezones(commands.Cog):
     timezone = app_commands.Group()
 
     @timezone.command(name = 'set', description = 'Set your timezone based on the time for you today.')
-    @app_commands.describe(given_time = 'The time for you now.')
+    @app_commands.describe(given_time = 'The time for you now, given in HH:MM format.')
     @app_commands.rename(given_time = 'time')
     async def set_timezone(self, interaction: Interaction, given_time: str):
         try:
@@ -157,9 +157,6 @@ class Timezones(commands.Cog):
         self.users_on_cooldown | {message.author.id: int(time.time()) + 15 * 60}
 
         mentions = re.findall("<@!?([0-9]+)>", message.content)
-
-        if not mentions:
-            return
         
         try:
             user = await message.guild.get_member(mentions[0][2:-1]) or self.bot.fetch_user(mentions[0][2:-1])
@@ -190,7 +187,7 @@ class Timezones(commands.Cog):
             req = await conn.execute("SELECT * FROM timezones WHERE user_id = ?", (message.author.id,))
             your_timezone_data = await req.fetchone()
 
-            if not your_timezone_data:
+            if your_timezone_data:
                 return
 
             your_tz = your_timezone_data['utc_diff']
@@ -198,20 +195,19 @@ class Timezones(commands.Cog):
             
             embed.description += f"- {user.mention}'s time is {utils.format_dt(your_datetime, style = 'f')} and their timezone is `UTC{f'+{your_tz}' if your_tz > 0 else your_tz}`\n"
         
-        if other_time_is_added:
-            embed.add_field(
-                name = "Time Difference",
-                value = f"You are {abs(your_tz - their_tz)} hours ahead of {user.mention}." if your_tz - their_tz > 0 else f"{user.mention} is {abs(your_tz - their_tz)} hours ahead of you."
-            )
-            embed.add_field(
-                name = "Extra Information",
-                value = f"\nIf you want to set your timezone, use `/timezone set`.\nIf you want to remove your timezone, use `/timezone remove`."
-            )
+        embed.add_field(
+            name = "Time Difference",
+            value = f"You are {abs(your_tz - their_tz)} hours ahead of {user.mention}." if your_tz - their_tz > 0 else f"{user.mention} is {abs(your_tz - their_tz)} hours ahead of you."
+        )
+        embed.add_field(
+            name = "Extra Information",
+            value = f"\nIf you want to set your timezone, use `/timezone set`.\nIf you want to remove your timezone, use `/timezone remove`."
+        )
 
-            try:
-                await message.reply(embed = embed)
-            except:
-                pass
+        try:
+            await message.reply(embed = embed)
+        except:
+            pass
 
     @tasks.loop(minutes = 1)
     async def reset_messages_per_minute(self):
