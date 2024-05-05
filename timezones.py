@@ -6,7 +6,7 @@ from typing import Mapping
 
 class ConfirmTimezone(ui.View):
     def __init__(self, user: discord.Member, timezone: int, formatted_timezone: str):
-        super().__init__(timeout = 60)
+        super().__init__(timeout = 25)
         self.user = user
         self.timezone = timezone
         self.formatted_timezone = formatted_timezone
@@ -171,6 +171,8 @@ class Timezones(commands.Cog):
             description = "Just to let you know:\n",
             color = discord.Color.dark_embed()
         )
+
+        other_time_is_added = False
         
         async with self.pool.acquire() as conn:
             req = await conn.execute("SELECT * FROM timezones WHERE user_id = ?", (user.id,))
@@ -183,6 +185,7 @@ class Timezones(commands.Cog):
             their_datetime = dt.now() + td(hours = their_tz)
             
             embed.description += f"- {user.mention}'s time is {utils.format_dt(their_datetime, style = 'f')} and their timezone is `UTC{f'+{their_tz}' if their_tz > 0 else their_tz}`\n"
+            other_time_is_added = True
 
             req = await conn.execute("SELECT * FROM timezones WHERE user_id = ?", (message.author.id,))
             your_timezone_data = await req.fetchone()
@@ -195,7 +198,16 @@ class Timezones(commands.Cog):
             
             embed.description += f"- {user.mention}'s time is {utils.format_dt(your_datetime, style = 'f')} and their timezone is `UTC{f'+{your_tz}' if your_tz > 0 else your_tz}`\n"
         
-        if embed.description != "Just to let you know:\n":
+        if other_time_is_added:
+            embed.add_field(
+                name = "Time Difference",
+                value = f"You are {abs(your_tz - their_tz)} hours ahead of {user.mention}." if your_tz - their_tz > 0 else f"{user.mention} is {abs(your_tz - their_tz)} hours ahead of you."
+            )
+            embed.add_field(
+                name = "Extra Information",
+                value = f"\nIf you want to set your timezone, use `/timezone set`.\nIf you want to remove your timezone, use `/timezone remove`."
+            )
+
             try:
                 await message.reply(embed = embed)
             except:
