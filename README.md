@@ -569,6 +569,7 @@ This took me around 4 hours, and I'm glad you got all this way through my projec
 Before you use this bot, you need to run a few things.
 
 First are the following SQL statements. These create the databases the bot is going to be using.
+
 _Note: this bot runs using SQLite._
 
 The first creates the `timezones` table:
@@ -583,7 +584,7 @@ The second creates the `guilds` table:
 ```sql
 CREATE TABLE IF NOT EXISTS guilds (
     user_id INTEGER NOT NULL,
-    guild_id INTEGER,
+    guild_id INTEGER NOT NULL,
     PRIMARY KEY (user_id, guild_id)
 );
 ```
@@ -599,8 +600,38 @@ CREATE TABLE IF NOT EXISTS messages (
 
 (The guilds table is necessary for performing lookups and paginating the results.)
 
+### TL;DR
+If you're too lazy to run the create statements yourself, (I'm looking at you, Qoyyuum) then just run the `setup db.py` file and it'll:
+- create the database
+- create the 3 tables
+- delete the file itself for you
+
+Nicely done! :thumbsup:
+
 Next, you need to install these libraries:
 ```
 discord.py
 asqlite
 ```
+
+This can also easily be done by `pip install`ing the requirements or via pipenv:
+
+### Pipenv
+`pipenv install`
+
+### Pip
+`pip install -r requirements.txt`
+
+### Docker 🐳
+Similarly, you can run this with Docker Compose
+
+`docker compose up -d --build`
+
+### Token
+Discord bot obviously needs a token. You can set this up with a simple `.env` file with a `TOKEN` value in, or just use a `.txt` file and read from that.
+
+(Make sure you have your file with the token in listed in your .gitignore!)
+
+`TOKEN = <INSERT YOUR TOKEN HERE>`
+
+As always, NEVER SHARE YOUR TOKEN WITH ANYONE.
