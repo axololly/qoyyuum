@@ -1,7 +1,6 @@
 /test.py
-/timezones.sql
+/timezones.sql*
 /token.txt
-__pycache__/
-/timezones.sql-shm
-/timezones.sql-wal
-/timezones.sql
+.env
+.pyc
+__pycache__/*

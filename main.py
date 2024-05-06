@@ -1,5 +1,8 @@
 import discord, asqlite, traceback
 from discord.ext import commands
+import os
+
+TOKEN = os.getenv("TOKEN")
 
 class DiscordBot(commands.Bot):
     def __init__(self):
@@ -41,4 +44,6 @@ async def sync(ctx):
     finally:
         await ctx.reply(embed = embed)
 
-bot.run(open('token.txt').read())
+if os.path.isfile('token.txt'):
+  bot.run(open('token.txt').read())
+bot.run(TOKEN)
