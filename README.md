@@ -604,3 +604,25 @@ Next, you need to install these libraries:
 discord.py
 asqlite
 ```
+
+This can also easily be done by pip installing the requirements or via pipenv:
+
+### Pipenv
+`pipenv install`
+
+### Pip
+`pip install -r requirements.txt`
+
+## Docker :whale:
+
+Similarly, you can run this with Docker Compose
+
+`docker compose up -d --build`
+
+## Token
+
+Discord bot obviously needs a token. You can set this up with a simple `.env` file with `TOKEN` value in
+
+`TOKEN=<INSERT YOUR TOKEN HERE>`
+
+As always, *NEVER SHARE YOUR TOKEN WITH ANYONE*

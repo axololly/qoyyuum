@@ -64,6 +64,7 @@ class Timezones(commands.Cog):
     def cog_unload(self):
         self.clear_db.cancel()
     
+
     timezone = app_commands.Group(name = 'timezone', description = 'Set your timezone.')
 
     @timezone.command(name = 'set', description = 'Set your timezone based on the time for you today.')
