@@ -59,14 +59,12 @@ class Timezones(commands.Cog):
     def cog_load(self):
         self.users_on_cooldown: Mapping[int, int] = {}
 
-        self.reset_messages_per_minute.start()
-        self.messages_per_minute = 0
+        self.clear_db.start()
     
     def cog_unload(self):
-        self.reset_messages_per_minute.cancel()
-        self.messages_per_minute = 0
+        self.clear_db.cancel()
     
-    timezone = app_commands.Group()
+    timezone = app_commands.Group(name = 'timezone', description = 'Set your timezone.')
 
     @timezone.command(name = 'set', description = 'Set your timezone based on the time for you today.')
     @app_commands.describe(given_time = 'The time for you now, given in HH:MM format.')
@@ -85,7 +83,7 @@ class Timezones(commands.Cog):
             return
 
         if int(minutes) != dt.now().minute:
-            await interaction.response.send_message("You can only set your timezone based on the current time.", ephemeral = True)
+            await interaction.response.send_message("You can only set your timezone based on the current time. The minutes value given is incorrect.", ephemeral = True)
             return
         
         async with self.pool.acquire() as conn:
@@ -145,34 +143,42 @@ class Timezones(commands.Cog):
         if not message.guild or message.author.bot:
             return
 
-        if self.messages_per_minute == 0:
-            self.reset_messages_per_minute.start()
-            self.bot.activity = discord.Activity(type = discord.ActivityType.watching, name = 'your timezones')
-
-        self.messages_per_minute += 1
-
-        if message.author.id in self.users_on_cooldown.keys():
-            return
-        
-        self.users_on_cooldown | {message.author.id: int(time.time()) + 15 * 60}
-
-        mentions = re.findall("<@!?([0-9]+)>", message.content)
-        
         try:
-            user = await message.guild.get_member(mentions[0][2:-1]) or self.bot.fetch_user(mentions[0][2:-1])
-        except:
+            self.clear_db.start()
+        except RuntimeError:
+            pass
+        
+        async with self.pool.acquire() as conn:
+            await conn.execute("""INSERT INTO messages (guild_id, channel_id) VALUES (?, ?)
+                                  ON CONFLICT (guild_id, channel_id) DO SET count = count + 1"""
+                                  (message.guild.id, message.channel.id)
+                              )
+
+            req = await conn.execute("SELECT * FROM cooldowns WHERE user_id = ?", (message.author.id,))
+            row = await req.fetchone()
+
+            if row:
+                return
+            
+            await conn.execute("INSERT INTO cooldowns (user_id, cooldown) VALUES (?, ?)", (message.author.id, int(time.time()) + 15 * 60))
+
+            self.update_cooldowns.restart()
+
+        try:
+            mention = re.findall("<@!?([0-9]+)>", message.content)[0]
+        except IndexError:
             return
+        
+        userID = int(mention[2:-1])
         
         embed = discord.Embed(
             title = "Their Timezone",
             description = "Just to let you know:\n",
             color = discord.Color.dark_embed()
         )
-
-        other_time_is_added = False
         
         async with self.pool.acquire() as conn:
-            req = await conn.execute("SELECT * FROM timezones WHERE user_id = ?", (user.id,))
+            req = await conn.execute("SELECT * FROM timezones WHERE user_id = ?", (userID,))
             their_timezone_data = await req.fetchone()
 
             if not their_timezone_data:
@@ -181,8 +187,7 @@ class Timezones(commands.Cog):
             their_tz = their_timezone_data['utc_diff']
             their_datetime = dt.now() + td(hours = their_tz)
             
-            embed.description += f"- {user.mention}'s time is {utils.format_dt(their_datetime, style = 'f')} and their timezone is `UTC{f'+{their_tz}' if their_tz > 0 else their_tz}`\n"
-            other_time_is_added = True
+            embed.description += f"- {mention}'s time is {utils.format_dt(their_datetime, style = 'f')} and their timezone is `UTC{f'+{their_tz}' if their_tz > 0 else their_tz}`\n"
 
             req = await conn.execute("SELECT * FROM timezones WHERE user_id = ?", (message.author.id,))
             your_timezone_data = await req.fetchone()
@@ -193,11 +198,11 @@ class Timezones(commands.Cog):
             your_tz = your_timezone_data['utc_diff']
             your_datetime = dt.now() + td(hours = your_tz)
             
-            embed.description += f"- {user.mention}'s time is {utils.format_dt(your_datetime, style = 'f')} and their timezone is `UTC{f'+{your_tz}' if your_tz > 0 else your_tz}`\n"
+            embed.description += f"- {mention}'s time is {utils.format_dt(your_datetime, style = 'f')} and their timezone is `UTC{f'+{your_tz}' if your_tz > 0 else your_tz}`\n"
         
         embed.add_field(
             name = "Time Difference",
-            value = f"You are {abs(your_tz - their_tz)} hours ahead of {user.mention}." if your_tz - their_tz > 0 else f"{user.mention} is {abs(your_tz - their_tz)} hours ahead of you."
+            value = f"You are {abs(your_tz - their_tz)} hours ahead of {mention}." if your_tz - their_tz > 0 else f"{mention} is {abs(your_tz - their_tz)} hours ahead of you."
         )
         embed.add_field(
             name = "Extra Information",
@@ -208,28 +213,36 @@ class Timezones(commands.Cog):
             await message.reply(embed = embed)
         except:
             pass
+        else:
+            async with self.pool.acquire() as conn:
+                await conn.execute("INSERT INTO cooldowns (user_id, ending_at) VALUES (?, ?)", (message.author.id, int(time.time()) + 15 * 60))
 
     @tasks.loop(minutes = 1)
-    async def reset_messages_per_minute(self):
-        if self.messages_per_minute == 0:
-            self.reset_messages_per_minute.cancel()
-            self.bot.activity = discord.Activity(type = discord.ActivityType.listening, name = 'nothing')
+    async def clear_db(self):
+        async with self.pool.acquire() as conn:
+            await conn.execute("DELETE FROM messages")
+
+            req = await conn.execute("SELECT changes()")
+            row = await req.fetchone()
         
-        self.messages_per_minute = 0
+        changes = row['changes()']
+
+        if changes == 0:
+            self.clear_db.cancel()
     
     @tasks.loop()
-    async def update_timezones(self):
-        start = self.users_on_cooldown.keys()[0]
-
-        try:
-            _, cooldown = tuple(self.users_on_cooldown[start])
-        except IndexError:
-            self.update_timezones.cancel()
-            return
+    async def update_cooldowns(self):
+        async with self.pool.acquire() as conn:
+            req = await conn.execute("SELECT * FROM cooldowns LIMIT 1")
+            row = await req.fetchone()
         
-        await utils.sleep_until(cooldown)
+        if not row:
+            self.update_cooldowns.cancel()
+        
+        await utils.sleep_until(row['cooldown'])
 
-        self.users_on_cooldown.pop(start)
+        async with self.pool.acquire() as conn:
+            await conn.execute("DELETE FROM cooldowns WHERE user_id = ?", (row['user_id'],))
 
 
 async def setup(bot):
