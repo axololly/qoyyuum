@@ -1,5 +1,8 @@
 import discord, asqlite
 from discord.ext import commands
+import os
+
+TOKEN = os.getenv("TOKEN")
 
 class DiscordBot(commands.Bot):
     def __init__(self):
@@ -14,4 +17,4 @@ class DiscordBot(commands.Bot):
 
 bot = DiscordBot()
 
-bot.run(open('token.txt').read())
+bot.run(TOKEN)

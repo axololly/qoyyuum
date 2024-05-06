@@ -66,7 +66,7 @@ class Timezones(commands.Cog):
         self.reset_messages_per_minute.cancel()
         self.messages_per_minute = 0
     
-    timezone = app_commands.Group()
+    timezone = app_commands.Group(name = 'timezone', description = 'Commands related to your timezone.')
 
     @timezone.command(name = 'set', description = 'Set your timezone based on the time for you today.')
     @app_commands.describe(given_time = 'The time for you now, given in HH:MM format.')

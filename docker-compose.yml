@@ -1,0 +1,11 @@
+version: "3.8"
+services:
+  bot:
+    build: .
+    container_name: timezonebot
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TOKEN
+    volumes:
+      - .:/app
