@@ -93,7 +93,7 @@ class Timezones(commands.Cog):
                               )
 ```
 
-Using Rapptz's (asqlite wrapper)[https://github.com/Rapptz/asqlite], we acquire a connection from the connection pool and use that to run our SQL transaction. In the transaction, we try to insert a new row with the guild and channel IDs of the `Message` object, and when this fails due to our `PRIMARY KEY` that only lets us have one copy of the data, we can update the row blocking us from inserting and raise the count by 1.
+Using Rapptz's [asqlite wrapper](https://github.com/Rapptz/asqlite), we acquire a connection from the connection pool and use that to run our SQL transaction. In the transaction, we try to insert a new row with the guild and channel IDs of the `Message` object, and when this fails due to our `PRIMARY KEY` that only lets us have one copy of the data, we can update the row blocking us from inserting and raise the count by 1.
 
 This SQL table change also means we can remove that variable.
 
